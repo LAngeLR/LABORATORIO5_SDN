@@ -12,12 +12,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.projectfloodlight.openflow.protocol.OFPortStatsEntry;
-import org.projectfloodlight.openflow.protocol.OFPortStatsReply;
-import org.projectfloodlight.openflow.protocol.OFStatsReply;
-import org.projectfloodlight.openflow.protocol.OFStatsRequest;
-import org.projectfloodlight.openflow.protocol.OFStatsType;
-import org.projectfloodlight.openflow.protocol.OFVersion;
+import org.projectfloodlight.openflow.protocol.*;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.ver13.OFMeterSerializerVer13;
 import org.projectfloodlight.openflow.types.DatapathId;
@@ -43,6 +38,9 @@ import net.floodlightcontroller.topology.NodePortTuple;
 
 public class StatisticsCollector implements IFloodlightModule, IStatisticsService {
 	private static final Logger log = LoggerFactory.getLogger(StatisticsCollector.class);
+
+	private static long portTxThreshold = 1000000000;
+	private static long portRxThreshold = 1000000000;
 
 	private static IOFSwitchService switchService;
 	private static IThreadPoolService threadPoolService;
@@ -81,6 +79,36 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 	 * @author Ryan Izard, ryan.izard@bigswitch.com, rizard@g.clemson.edu
 	 *
 	 */
+
+	private class FlowStatsCollector implements Runnable {
+
+		@Override
+		public void run() {
+			Map<DatapathId, List<OFStatsReply>> replies = getSwitchStatistics(switchService.getAllSwitchDpids(), OFStatsType.FLOW);
+			for (Entry<DatapathId, List<OFStatsReply>> e : replies.entrySet()) {
+				for (OFStatsReply r : e.getValue()) {
+					OFFlowStatsReply fsr = (OFFlowStatsReply) r;
+					for (OFFlowStatsEntry fse : fsr.getEntries()) {
+
+						DatapathId switchId = e.getKey();
+						long durationSeconds = fse.getDurationSec();
+						long durationNanoseconds = fse.getDurationNsec();
+						long byteCount = fse.getByteCount().getValue();
+
+						long bandwidth = (byteCount * 8) / (durationSeconds + durationNanoseconds / 1_000_000_000L);
+
+						if (bandwidth > 1_000_000) {
+							log.warn("Flujo de alto ancho de banda detectado en el switch {}", switchId);
+							//Aqui podemos definir algunas acciones Como enviar una notificiacion, un mensaje, etc.
+						}
+
+					}
+				}
+			}
+		}
+	}
+
+
 	private class PortStatsCollector implements Runnable {
 
 		@Override
@@ -126,7 +154,13 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 									U64.ofRaw((txBytesCounted.getValue() * BITS_PER_BYTE) / timeDifSec), 
 									pse.getRxBytes(), pse.getTxBytes())
 									);
-							
+
+							if (txBytesCounted.compareTo(U64.of(portTxThreshold)) > 0) {
+								log.info("Se ha superado el umbral de TX en el puerto {} del switch {}.", npt.getPortId(), npt.getNodeId());
+							}
+							if (rxBytesCounted.compareTo(U64.of(portRxThreshold)) > 0) {
+								log.info("Se ha superado el umbral de RX en el puerto {} del switch {}.", npt.getPortId(), npt.getNodeId());
+							}
 						} else { /* initialize */
 							tentativePortStats.put(npt, SwitchPortBandwidth.of(npt.getNodeId(), npt.getPortId(), U64.ZERO, U64.ZERO, pse.getRxBytes(), pse.getTxBytes()));
 						}

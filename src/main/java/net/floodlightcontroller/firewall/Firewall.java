@@ -69,13 +69,15 @@ import org.slf4j.LoggerFactory;
 /**
  * Stateless firewall implemented as a Google Summer of Code project.
  * Configuration done through REST API
- * 
+ *
  * @author Amer Tahir
  * @edited KC Wang
  * @edited Ryan Izard
  */
 public class Firewall implements IFirewallService, IOFMessageListener,
 IFloodlightModule {
+
+
 
 	// service modules needed
 	protected IFloodlightProviderService floodlightProvider;
@@ -167,10 +169,10 @@ IFloodlightModule {
 	/**
 	 * Reads the rules from the storage and creates a sorted arraylist of
 	 * FirewallRule from them.
-	 * 
+	 *
 	 * Similar to getStorageRules(), which only reads contents for REST GET and
 	 * does no parsing, checking, nor putting into FirewallRule objects
-	 * 
+	 *
 	 * @return the sorted arraylist of FirewallRule instances (rules from
 	 *         storage)
 	 */
@@ -450,7 +452,7 @@ IFloodlightModule {
 	 * appropriately set for different types of rules (allow vs. deny), separate
 	 * wildcards are maintained. Iteration is performed on the sorted list of
 	 * rules (sorted in decreasing order of priority).
-	 * 
+	 *
 	 * @param sw
 	 *            the switch instance
 	 * @param pi
@@ -487,7 +489,7 @@ IFloodlightModule {
 		rmp.rule = matched_rule;
 		if (matched_rule == null) {
 			/*
-			 * No rule was found, so drop the packet with as specific 
+			 * No rule was found, so drop the packet with as specific
 			 * of a drop rule as possible as not to interfere with other
 			 * firewall rules.
 			 */
@@ -528,7 +530,7 @@ IFloodlightModule {
 	/**
 	 * Checks whether an IP address is a broadcast address or not (determines
 	 * using subnet mask)
-	 * 
+	 *
 	 * @param IPAddress
 	 *            the IP address to check
 	 * @return true if it is a broadcast address, false otherwise
@@ -557,7 +559,7 @@ IFloodlightModule {
 					logger.trace("Allowing broadcast traffic for PacketIn={}", pi);
 				}
 
-				decision = new RoutingDecision(sw.getId(), inPort, 
+				decision = new RoutingDecision(sw.getId(), inPort,
 						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
 						IRoutingDecision.RoutingAction.MULTICAST);
 				decision.addToContext(cntx);
@@ -592,8 +594,8 @@ IFloodlightModule {
 
 			// Drop the packet if we don't have a rule allowing or dropping it or if we explicitly drop it
 			if (rule == null || rule.action == FirewallRule.FirewallAction.DROP) {
-				decision = new RoutingDecision(sw.getId(), inPort, 
-						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE), 
+				decision = new RoutingDecision(sw.getId(), inPort,
+						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
 						IRoutingDecision.RoutingAction.DROP);
 				decision.setMatch(rmp.match);
 				decision.addToContext(cntx);
@@ -606,7 +608,7 @@ IFloodlightModule {
 				}
 				// Found a rule and the rule is not a drop, so allow the packet
 			} else {
-				decision = new RoutingDecision(sw.getId(), inPort, 
+				decision = new RoutingDecision(sw.getId(), inPort,
 						IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE),
 						IRoutingDecision.RoutingAction.FORWARD_OR_FLOOD);
 				decision.setMatch(rmp.match);
